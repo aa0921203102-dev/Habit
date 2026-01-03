@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Bo's Strategy 48.5.4</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-master: radial-gradient(circle at 85% 5%, rgba(160, 60, 50, 0.15) 0%, transparent 45%), 
+                         radial-gradient(circle at 50% 15%, #7D6B5D 0%, #4E443F 65%, #1A1817 100%);
+            --accent-champagne: #D1C4BC; 
+            --ghost-blue: rgba(100, 160, 200, 0.4);
+            --danger-red: #C94A4A;
+        }
+        body { background: var(--bg-master); min-height: 100vh; font-family: 'Inter', sans-serif; color: #F2EBE3; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        .safe-container { max-width: 500px; margin: 0 auto; padding: 0 24px; }
+        .today-label { font-weight: 900; font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: rgba(255,255,255,0.4); margin-bottom: 4px; display: block; }
+        .main-title { font-size: 22px; font-weight: 900; color: white; background: transparent; border: none; outline: none; width: 100%; }
+        
+        .date-slider { display: flex; overflow-x: auto; gap: 8px; padding: 10px 0; -ms-overflow-style: none; scrollbar-width: none; scroll-behavior: smooth; }
+        .date-slider::-webkit-scrollbar { display: none; }
+        .date-item { flex-shrink: 0; text-align: center; width: 22px; transition: 0.3s; opacity: 0.15; cursor: pointer; }
+        .date-item.active { opacity: 1; transform: scale(1.1); }
+        .date-item .day-num { font-size: 13px; font-weight: 700; display: block; }
+        .date-item.active .day-num { color: var(--accent-champagne); text-shadow: 0 0 8px rgba(209, 196, 188, 0.6); }
+
+        .month-btn { flex-shrink: 0; width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.2); }
+        .month-btn.active { border-color: var(--accent-champagne); color: var(--accent-champagne); background: rgba(255,255,255,0.12); backdrop-filter: blur(20px); }
+        
+        .crystal-card { 
+            background: linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 45%, rgba(255,255,255,0.01) 100%);
+            border-radius: 1.8rem; padding: 14px 20px; margin-bottom: 1rem; backdrop-filter: blur(40px) saturate(180%);
+            border-top: 1.5px solid rgba(255, 255, 255, 0.45); border-left: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.2), 0 15px 40px rgba(0, 0, 0, 0.4);
+            position: relative; overflow: hidden;
+        }
+
+        @keyframes sparkWide { 0% { border-color: rgba(255,255,255,0.4); } 50% { border-color: white; box-shadow: 0 0 30px rgba(255,255,255,0.6); } 100% { border-color: rgba(255,255,255,0.4); } }
+        .spark-moment { animation: sparkWide 0.8s ease-out; }
+        @keyframes shimmerFull { 0% { transform: translateX(-200%) skewX(-30deg); } 100% { transform: translateX(200%) skewX(-30deg); } }
+        .shimmer-moment::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); animation: shimmerFull 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; pointer-events: none; }
+        @keyframes rippleDeep { 0% { transform: scale(1); } 50% { transform: scale(1.03); filter: brightness(1.25); } 100% { transform: scale(1); } }
+        .celebrate-moment { animation: rippleDeep 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+
+        .summary-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(40px); border-radius: 1.8rem; display: flex; align-items: center; padding: 18px 0; margin-bottom: 30px; border-top: 1.5px solid rgba(255, 255, 255, 0.4); }
+        .bubble { width: 14px; height: 14px; border: 1.2px solid rgba(255,255,255,0.4); border-radius: 50%; cursor: pointer; transition: 0.3s; }
+        .bubble.active { background: var(--accent-champagne); border-color: var(--accent-champagne); box-shadow: 0 0 15px var(--accent-champagne); }
+        .bubble.ghost, .daily-circle.ghost { background: var(--ghost-blue); border-color: var(--ghost-blue); box-shadow: 0 0 10px var(--ghost-blue); }
+        
+        .mgmt-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 1.5rem; padding: 16px; margin-bottom: 12px; }
+        .mgmt-label { font-size: 8px; font-weight: 900; color: rgba(255,255,255,0.2); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px; display: block; }
+        .cat-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+
+        /* 導航欄與滑動優化 */
+        .glass-nav { position: fixed; bottom: 30px; left: 6%; right: 6%; background: rgba(25, 22, 20, 0.95); backdrop-filter: blur(60px) saturate(180%); border-top: 1.5px solid rgba(255, 255, 255, 0.4); border-radius: 2rem; padding: 18px; z-index: 100; box-shadow: 0 30px 80px rgba(0,0,0,0.7); transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); touch-action: none; }
+        .glass-nav.collapsed { transform: translateY(calc(100% - 48px)); }
+        .nav-handle { width: 100%; height: 40px; margin: -10px 0 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
+        .handle-bar { width: 40px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; }
+        .handle-arrow { font-size: 8px; color: rgba(255,255,255,0.2); margin-top: 4px; font-weight: 900; transition: 0.3s; }
+
+        .qty-box { width: 42px; height: 34px; background: rgba(255,255,255,0.1); border-radius: 8px; text-align: center; font-size: 12px; font-weight: 900; color: var(--accent-champagne); border: 1px solid rgba(255,255,255,0.2); }
+        .task-title-input { background: transparent; border: none; outline: none; font-size: 16px; font-weight: 900; color: white; width: 100%; }
+        .trash-btn { color: var(--danger-red); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; }
+    </style>
+</head>
+<body class="pb-96 pt-10">
+    <div id="noteModal" class="fixed inset-0 bg-black/85 backdrop-blur-xl z-[1000] hidden items-center justify-center p-6"><div class="note-box bg-[#2A2624] border border-white/10 rounded-[2.2rem] p-7 w-full max-w-sm"><p id="noteTargetName" class="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-1"></p><h3 class="text-xl font-black text-white">編輯進度備註</h3><textarea id="noteField" class="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white text-sm outline-none my-4 h-40"></textarea><div class="flex gap-3"><button onclick="closeNote()" class="flex-1 py-4 rounded-xl bg-white/5 text-[10px] font-black">CANCEL</button><button onclick="saveNote()" class="flex-1 py-4 rounded-xl bg-[#D1C4BC] text-[#1a1817] text-[10px] font-black">SAVE NOTE</button></div></div></div>
+
+    <div class="safe-container">
+        <header class="mb-6"><span id="topTodayDate" class="today-label"></span><div class="flex justify-between items-end gap-4"><div class="flex-1"><input type="text" id="boTitle" class="main-title" oninput="saveTitle()" placeholder="年度計劃主題"></div><div class="flex items-center gap-3 mb-2 shrink-0"><span class="text-[8px] font-black text-white/30 uppercase tracking-widest">年度達成總率</span><span id="annualRate" class="text-[20px] font-black text-[#D1C4BC]">0%</span></div></div></header>
+        <div class="date-slider no-scrollbar" id="dateSlider"></div>
+        <div class="flex overflow-x-auto gap-3 mb-6 no-scrollbar" id="monthNav"></div>
+        <div class="summary-panel">
+            <div class="flex-1 border-r border-white/10 text-center"><p class="text-[8px] font-black text-white/30 uppercase mb-1 tracking-widest">本週進度</p><p id="weekRate" class="text-[18px] font-black text-white">0%</p></div>
+            <div class="flex-1 border-r border-white/10 text-center"><p class="text-[8px] font-black text-white/30 uppercase mb-1 tracking-widest">月完成率</p><p id="monthRate" class="text-[18px] font-black text-white">0%</p></div>
+            <div class="flex-1 text-center"><p class="text-[8px] font-black text-white/30 uppercase mb-1 tracking-widest">瀏覽月份</p><p id="goalDisplay" class="text-[18px] font-black text-white">2026.01</p></div>
+        </div>
+        <main id="taskList" class="space-y-4"></main>
+        <details class="mt-20">
+            <summary class="py-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center gap-2 text-[10px] font-black text-white/30 uppercase tracking-widest cursor-pointer">策略管理中心</summary>
+            <div class="mt-6 space-y-4">
+                <div class="mgmt-card"><span class="mgmt-label">策略佈局工具</span><button onclick="toggleMoveMode()" class="w-full py-4 rounded-xl border border-white/10 text-[10px] font-black tracking-[0.2em] transition-all bg-white/5 text-white/40">調整目標佈局</button></div>
+                <div class="mgmt-card"><span class="mgmt-label">領域結構管理</span><div id="catManagerList" class="mb-4"></div><div class="flex gap-2"><input type="text" id="newCatName" placeholder="新增領域名稱..." class="flex-1 bg-transparent outline-none text-[11px] font-bold text-white/80 border-b border-white/10"><button onclick="addCat()" class="text-[8px] font-black text-[#D1C4BC]">ADD</button></div></div>
+                <div class="mgmt-card"><span class="mgmt-label">檔案庫 (備案管理)</span><div id="archivedTasksList" class="mb-2"></div><div id="archivedCatsList"></div></div>
+                <div class="mgmt-card"><span class="mgmt-label">數據管理</span><button onclick="exportData()" class="w-full bg-[#D1C4BC] text-[#1a1817] text-[10px] font-black py-4 rounded-xl shadow-lg">複製數據進行 AI 復盤</button></div>
+                <p class="text-center text-[7px] text-white/10 py-4 tracking-[0.3em]">VERSION 48.5.4 · SWIPE READY</p>
+            </div>
+        </details>
+
+        <nav id="bottomNav" class="glass-nav">
+            <div class="nav-handle" id="navHandle"><div class="handle-bar"></div><div class="handle-arrow" id="navArrow">▲</div></div>
+            <div class="flex items-center gap-2">
+                <select id="catSelect" class="bg-transparent text-[10px] font-bold text-white/40 outline-none w-[60px]"></select>
+                <input type="text" id="taskName" class="flex-1 min-w-0 bg-transparent text-sm font-bold text-white outline-none" placeholder="新增小目標">
+                <input type="number" id="taskQty" class="qty-box" value="1">
+                <button onclick="addTask()" class="w-9 h-9 bg-white/15 rounded-xl font-bold">＋</button>
+            </div>
+            <div class="mt-3"><select id="taskType" class="bg-white/10 px-3 py-1.5 rounded-lg text-[9px] font-black text-white/60 outline-none"><option value="daily">每日原子習慣</option><option value="weekly">每週計畫</option><option value="annual">年度計劃</option></select></div>
+        </nav>
+    </div>
+
+    <script>
+        const KEY = 'bo_v48_6';
+        let categories = JSON.parse(localStorage.getItem(KEY+'_cats')) || [{id:'c1', title:'核心目標 CORE'}];
+        let habits = JSON.parse(localStorage.getItem(KEY+'_tasks')) || [];
+        let archivedCats = JSON.parse(localStorage.getItem(KEY+'_arch_cats')) || [];
+        let archivedHabits = JSON.parse(localStorage.getItem(KEY+'_arch_tasks')) || [];
+        let history = JSON.parse(localStorage.getItem(KEY+'_hist')) || {};
+        let notes = JSON.parse(localStorage.getItem(KEY+'_notes')) || {};
+        let titleVal = localStorage.getItem(KEY+'_title') || "", currentEditingTaskId = "", isMoveMode = false, newlyAchievedId = null, lastClick = 0;
+        let viewingMonth = new Date().getMonth() + 1, selectedDate = new Date();
+
+        function init() {
+            habits.forEach(h => { if(!h.id) h.id = 't_' + Math.random().toString(36).substr(2, 9); });
+            document.getElementById('topTodayDate').innerText = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\//g, '.');
+            document.getElementById('boTitle').value = titleVal;
+            render(); renderCatManager(); renderMonths(); renderDateSlider();
+            initSwipe();
+        }
+
+        // --- 核心優化：滑動支援邏輯 ---
+        function initSwipe() {
+            const nav = document.getElementById('bottomNav');
+            const handle = document.getElementById('navHandle');
+            let startY = 0;
+
+            // 點擊觸發
+            handle.addEventListener('click', toggleNav);
+
+            // 滑動觸發
+            nav.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, {passive: true});
+            nav.addEventListener('touchend', e => {
+                const endY = e.changedTouches[0].clientY;
+                const diff = startY - endY;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) nav.classList.remove('collapsed'); // 向上滑展開
+                    else nav.classList.add('collapsed'); // 向下滑收起
+                    updateArrow();
+                }
+            }, {passive: true});
+        }
+
+        function toggleNav() { 
+            const nav = document.getElementById('bottomNav');
+            nav.classList.toggle('collapsed');
+            updateArrow();
+        }
+
+        function updateArrow() {
+            const nav = document.getElementById('bottomNav');
+            const arrow = document.getElementById('navArrow');
+            arrow.innerText = nav.classList.contains('collapsed') ? '▲' : '▼';
+        }
+
+        function handleInteraction(id) {
+            const now = Date.now();
+            if (now - lastClick < 300) { 
+                const d = selectedDate.toLocaleDateString('zh-TW');
+                if(!history[d]) history[d] = {};
+                history[d][id] = 0.1; newlyAchievedId = id; save();
+                lastClick = 0; return true;
+            }
+            lastClick = now; return false;
+        }
+
+        function toggleDaily(id) { if(handleInteraction(id)) return; const d = selectedDate.toLocaleDateString('zh-TW'); if(!history[d]) history[d]={}; history[d][id] = (history[d][id] === 1) ? 0 : 1; newlyAchievedId = id; save(); }
+        function setWeekly(id, n) { if(handleInteraction(id)) return; const d = selectedDate.toLocaleDateString('zh-TW'); if(!history[d]) history[d]={}; history[d][id] = n; newlyAchievedId = id; save(); }
+        function getWeeklyDone(id) { const curr = new Date(selectedDate), day = curr.getDay(), diff = curr.getDate() - (day === 0 ? 6 : day - 1); const mon = new Date(new Date(selectedDate).setDate(diff)); let t = 0; for(let i=0; i<7; i++){ const d = new Date(new Date(mon).setDate(mon.getDate() + i)).toLocaleDateString('zh-TW'); t += history[d]?.[id] || 0; } return t; }
+        function getAnnualDone(id) { let t = 0; Object.keys(history).forEach(d => { if(history[d]?.[id]) t += history[d][id]; }); return t; }
+
+        function render() {
+            const dStr = selectedDate.toLocaleDateString('zh-TW'), list = document.getElementById('taskList');
+            list.innerHTML = '';
+            document.getElementById('catSelect').innerHTML = categories.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+            categories.forEach(cat => {
+                let sectionHTML = `<section><div class="text-[15px] font-black text-white/70 mb-4 pl-1">${cat.title}</div>`;
+                habits.filter(h => h.cid === cat.id).forEach(h => {
+                    const raw = h.type === 'annual' ? getAnnualDone(h.id) : (h.type === 'daily' ? (history[dStr]?.[h.id] || 0) : getWeeklyDone(h.id));
+                    const rate = Math.round((raw / h.target) * 100), isGhost = raw > 0 && raw < 1;
+                    let celClass = (h.id === newlyAchievedId) ? (rate >= 100 ? 'celebrate-moment' : (rate >= 60 ? 'shimmer-moment' : (rate >= 30 ? 'spark-moment' : ''))) : '';
+                    if(celClass) newlyAchievedId = null;
+                    sectionHTML += `<div class="crystal-card ${celClass}">
+                        <div class="flex items-center">
+                            ${h.type==='daily' ? `<div class="w-7 h-7 border-2 border-white/20 rounded-full flex items-center justify-center mr-3 daily-circle ${raw >= 1 ? 'bg-[#D1C4BC] border-[#D1C4BC]' : (isGhost ? 'ghost' : '')}" onclick="toggleDaily('${h.id}')">
+                                ${raw >= 1 ? '<svg class="w-3.5 h-3.5 text-stone-900" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="6"><path d="M5 13l4 4L19 7"></path></svg>' : (isGhost ? '<div class="w-1.5 h-1.5 bg-white/60 rounded-full"></div>' : '')}
+                            </div>` : ''}
+                            <div class="flex-1"><input type="text" class="task-title-input" value="${h.name}" onblur="renameTask('${h.id}', this.value)"><div class="flex items-center gap-2"><p class="text-[6px] font-black text-white/20 uppercase tracking-tighter">${h.type==='daily'?'原子':(h.type==='annual'?'年度':'每週')}</p><div onclick="openNote('${h.id}')" class="note-trigger ${notes[h.id]?'active':''} opacity-20 cursor-pointer"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div></div></div>
+                            <div class="opacity-10 text-xs px-2" onclick="archiveTask('${h.id}')">✕</div>
+                        </div>
+                        ${isMoveMode ? `<select class="w-full mt-3 bg-white/5 p-1.5 rounded-lg text-[9px] text-white/40" onchange="moveTaskToCat('${h.id}', this.value)">${categories.map(c => `<option value="${c.id}" ${c.id===h.cid?'selected':''}>${c.title}</option>`).join('')}</select>` : ''}
+                        ${h.type==='weekly' ? `<div class="flex flex-wrap gap-2 mt-4">${Array.from({length: h.target}, (_,i)=>i+1).map(n => `<div class="bubble ${raw>=n?'active':(isGhost && n===1?'ghost':'')}" onclick="setWeekly('${h.id}', ${n})"></div>`).join('')}</div>` : ''}
+                        ${h.type==='annual' ? `<div class="flex items-center gap-3 mt-4 bg-white/5 p-2.5 rounded-xl"><button onclick="changeAnnual('${h.id}',-1)" class="w-6 h-6">-</button><div class="flex-1 text-center font-black text-sm">${Math.floor(raw)}<span class="opacity-20 mx-1">/</span>${h.target}</div><button onclick="changeAnnual('${h.id}',1)" class="w-6 h-6">+</button></div>` : ''}
+                        <div class="flex justify-between items-center mt-4 pt-3 border-t border-white/5"><div class="flex gap-3 text-[10px] font-bold text-white/30"><span>目 ${h.target}</span><span>完 ${raw>0&&raw<1?'微':Math.floor(raw)}</span><span>剩 ${Math.max(0, h.target - Math.floor(raw))}</span></div><div class="text-[11px] font-black ${rate>=100?'text-[#D1C4BC]':'text-white/60'}">${rate}% ${rate>=100?'✨':''}</div></div>
+                    </div>`;
+                }); list.innerHTML += sectionHTML + `</section>`;
+            }); updateSummary();
+        }
+
+        const trashSVG = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>`;
+        function renderCatManager() {
+            const list = document.getElementById('catManagerList');
+            list.innerHTML = categories.map((c, i) => `<div class="cat-row"><div class="flex items-center gap-2 flex-1"><div class="flex flex-col"><button onclick="moveCat(${i}, -1)" class="text-[7px] opacity-20">▲</button><button onclick="moveCat(${i}, 1)" class="text-[7px] opacity-20">▼</button></div><input type="text" class="bg-transparent text-[11px] font-bold text-white/70 outline-none" value="${c.title}" onblur="renameCat('${c.id}', this.value)"></div><button onclick="archiveCat('${c.id}')" class="opacity-20 px-2">✕</button></div>`).join('');
+            document.getElementById('archivedCatsList').innerHTML = archivedCats.map((c, i) => `<div class="flex justify-between items-center py-2 border-b border-white/5"><span class="text-[10px] text-white/20">${c.title}</span><div class="flex gap-4"><button onclick="restoreCat(${i})" class="text-[8px] text-[#D1C4BC]">還原</button><div class="trash-btn" onclick="hardDeleteCat(${i})">${trashSVG}</div></div></div>`).join('');
+            document.getElementById('archivedTasksList').innerHTML = archivedHabits.map((h, i) => `<div class="flex justify-between items-center py-2 border-b border-white/5"><span class="text-[10px] text-white/20">${h.name}</span><div class="flex gap-4"><button onclick="restoreTask(${i})" class="text-[8px] text-[#D1C4BC]">還原</button><div class="trash-btn" onclick="hardDeleteTask(${i})">${trashSVG}</div></div></div>`).join('');
+        }
+
+        function save() { localStorage.setItem(KEY+'_cats', JSON.stringify(categories)); localStorage.setItem(KEY+'_tasks', JSON.stringify(habits)); localStorage.setItem(KEY+'_arch_cats', JSON.stringify(archivedCats)); localStorage.setItem(KEY+'_arch_tasks', JSON.stringify(archivedHabits)); localStorage.setItem(KEY+'_hist', JSON.stringify(history)); localStorage.setItem(KEY+'_notes', JSON.stringify(notes)); render(); }
+        function moveCat(i, d) { const ni = i + d; if (ni >= 0 && ni < categories.length) { [categories[i], categories[ni]] = [categories[ni], categories[i]]; save(); renderCatManager(); } }
+        function archiveCat(cid) { const idx = categories.findIndex(c => c.id === cid); if(idx > -1) { archivedCats.push(categories.splice(idx, 1)[0]); save(); renderCatManager(); } }
+        function restoreCat(i) { categories.push(archivedCats.splice(i, 1)[0]); save(); renderCatManager(); }
+        function hardDeleteCat(i) { if(confirm('徹底刪除此領域？')) { archivedCats.splice(i, 1); save(); renderCatManager(); } }
+        function restoreTask(i) { habits.push(archivedHabits.splice(i, 1)[0]); save(); renderCatManager(); }
+        function hardDeleteTask(i) { if(confirm('徹底刪除此指標？')) { archivedHabits.splice(i, 1); save(); renderCatManager(); } }
+        function archiveTask(id) { const idx = habits.findIndex(h => h.id === id); if(idx > -1) { archivedHabits.push(habits.splice(idx, 1)[0]); save(); renderCatManager(); } }
+        function addTask() { const n = document.getElementById('taskName').value.trim(), c = document.getElementById('catSelect').value, t = document.getElementById('taskType').value, q = parseInt(document.getElementById('taskQty').value) || 1; if(n) { habits.push({id:'t_'+Date.now(), name:n, cid:c, type:t, target:q}); save(); document.getElementById('taskName').value=''; } }
+        function updateSummary() { let wD=0, wT=0, mD=0, aD=0, aT=0; const dStr=selectedDate.toLocaleDateString('zh-TW'); habits.forEach(h => { const d = h.type === 'daily' ? (history[dStr]?.[h.id] || 0) : (h.type === 'weekly' ? getWeeklyDone(h.id) : 0); if(h.type === 'annual') { aD += getAnnualDone(h.id); aT += h.target; } else { wD += d; wT += h.target; aT += (h.type === 'daily' ? 365 : h.target * 52); } }); Object.keys(history).forEach(d => { Object.keys(history[d]).forEach(tid => { const h=habits.find(x=>x.id===tid); if(h && h.type!=='annual') aD+=history[d][tid]; if(parseInt(d.split('/')[1]) === viewingMonth) mD += history[d][tid]; }); }); document.getElementById('weekRate').innerText = wT > 0 ? Math.round((wD/wT)*100)+'%' : '0%'; document.getElementById('monthRate').innerText = (wT*4) > 0 ? Math.round((mD/(wT*4))*100)+'%' : '0%'; document.getElementById('annualRate').innerText = aT > 0 ? Math.round((aD/aT)*100)+'%' : '0%'; }
+        function renderDateSlider() { const s = document.getElementById('dateSlider'); s.innerHTML=''; const days = new Date(2026, viewingMonth, 0).getDate(); for(let i=1; i<=days; i++) { let d = new Date(2026, viewingMonth-1, i); s.innerHTML += `<div class="date-item ${d.toLocaleDateString()==selectedDate.toLocaleDateString()?'active':''}" onclick="selectDate('${d.toISOString()}')"><span class="day-num">${i}</span></div>`; } }
+        function selectDate(iso) { selectedDate = new Date(iso); renderDateSlider(); render(); }
+        function renderMonths() { document.getElementById('monthNav').innerHTML = Array.from({length:12}, (_,i)=>i+1).map(m=>`<div class="month-btn ${m===viewingMonth?'active':''}" onclick="setMonth(${m})">${m}M</div>`).join(''); }
+        function setMonth(m) { viewingMonth=m; selectedDate=new Date(2026,m-1,1); renderMonths(); renderDateSlider(); render(); document.getElementById('goalDisplay').innerText=`2026.${viewingMonth.toString().padStart(2,'0')}`; }
+        function renameTask(id, v) { const h=habits.find(x=>x.id===id); if(h&&v.trim()){h.name=v.trim(); save();} }
+        function renameCat(id, v) { const c=categories.find(x=>x.id===id); if(c&&v.trim()){c.title=v.trim(); save();} }
+        function changeAnnual(id, v) { const d = selectedDate.toLocaleDateString('zh-TW'); if(!history[d]) history[d]={}; history[d][id] = Math.max(0, (history[d][id] || 0) + v); newlyAchievedId = id; save(); }
+        function toggleMoveMode() { isMoveMode = !isMoveMode; render(); }
+        function moveTaskToCat(tid, ncid) { const h=habits.find(x=>x.id===tid); if(h){h.cid=ncid; save();} }
+        function saveTitle() { localStorage.setItem(KEY+'_title', document.getElementById('boTitle').value); }
+        function openNote(id) { const h=habits.find(x=>x.id===id); currentEditingTaskId=id; document.getElementById('noteTargetName').innerText=h.name; document.getElementById('noteField').value=notes[id]||''; document.getElementById('noteModal').style.display='flex'; }
+        function closeNote() { document.getElementById('noteModal').style.display='none'; }
+        function saveNote() { notes[currentEditingTaskId]=document.getElementById('noteField').value; save(); closeNote(); }
+        function exportData() { const d = {title: titleVal, tasks: habits.map(h=>({name:h.name, rate: Math.round((getAnnualDone(h.id)/h.target)*100)+'%'}))}; navigator.clipboard.writeText(JSON.stringify(d,null,2)).then(() => alert('🚀 數據已複製！')); }
+        window.onload = init;
+    </script>
+</body>
+</html>
