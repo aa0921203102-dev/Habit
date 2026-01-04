@@ -1,0 +1,17 @@
+{
+  "name": "Bo's Strategy",
+  "short_name": "BoStrategy",
+  "description": "韓系高質感目標管理系統",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#1A1817",
+  "theme_color": "#7D6B5D",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5968/5968263.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
